@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     SERVER_PORT: int = 8000
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # AI Configuration
+    OPENAI_API_KEY: Optional[str] = None
+
     # Security & Authentication
     SECRET_KEY: str = "super-secret-key-change-this-in-production-for-jwt-signing"
     ALGORITHM: str = "HS256"
@@ -76,7 +79,13 @@ class Settings(BaseSettings):
             "connections": {"default": self.TORTOISE_URI},
             "apps": {
                 "models": {
-                    "models": ["app.models.user", "aerich.models"],
+                    "models": [
+                        "app.models.user", 
+                        "app.models.organization",
+                        "app.models.workspace",
+                        "app.models.document",
+                        "aerich.models"
+                    ],
                     "default_connection": "default",
                 },
             },

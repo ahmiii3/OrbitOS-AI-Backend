@@ -67,28 +67,18 @@ async def verify_org_membership(
     required_role: str = None
 ):
     """
-    Dependency helper to check if the current user belongs to the specified organization.
+    Dependency helper to check if the current user owns the specified organization.
     """
     from fastapi import HTTPException, status
-    from app.models.organization import OrganizationMember
+    from app.models.organization import Organization
 
-    member = await OrganizationMember.filter(organization_id=org_id, user_id=user.id).first()
-    if not member:
+    org = await Organization.filter(id=org_id, owner_id=user.id).first()
+    if not org:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not a member of this organization"
+            detail="User is not the owner of this organization"
         )
-
-    if required_role:
-        user_level = ROLE_HIERARCHY.get(member.role, 0)
-        required_level = ROLE_HIERARCHY.get(required_role, 0)
-        if user_level < required_level:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Organization role '{member.role}' does not meet required '{required_role}' permission level"
-            )
-
-    return member
+    return org
 
 
 async def verify_workspace_access(workspace_id: str, user: User):

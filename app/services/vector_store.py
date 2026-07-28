@@ -2,6 +2,7 @@ import os
 from typing import List, Dict, Any
 from langchain_postgres import PGVector
 from langchain_core.documents import Document as LCDocument
+from app.core.config import settings
 from app.services.embedding_service import EmbeddingService
 
 class VectorStoreService:
@@ -9,12 +10,16 @@ class VectorStoreService:
     
     def __init__(self, embedding_service: EmbeddingService):
         self.embedding_service = embedding_service
-        self.connection_string = os.getenv("DATABASE_URI_OVERRIDE", "postgresql+psycopg://postgres:postgres@localhost:5432/postgres")
+        self.connection_string = settings.DATABASE_URI
         # Ensure driver is psycopg for langchain-postgres compatibility
         if self.connection_string.startswith("postgresql://"):
-            self.connection_string = self.connection_string.replace("postgresql://", "postgresql+psycopg://")
+            self.connection_string = self.connection_string.replace("postgresql://", "postgresql+psycopg://", 1)
         elif self.connection_string.startswith("postgresql+asyncpg://"):
-            self.connection_string = self.connection_string.replace("postgresql+asyncpg://", "postgresql+psycopg://")
+            self.connection_string = self.connection_string.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+            
+        # psycopg doesn't like '?ssl=require', it expects sslmode
+        if "?ssl=" in self.connection_string:
+            self.connection_string = self.connection_string.split("?ssl=")[0]
 
         self.collection_name = "orbitos_knowledge_base"
         

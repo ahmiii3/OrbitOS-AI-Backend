@@ -2,6 +2,7 @@ import json
 from typing import Dict, Any, List
 from redis.asyncio import Redis
 from app.ai.memory.base import BaseMemory
+from langchain_core.messages import messages_from_dict, messages_to_dict
 
 class RedisMemory(BaseMemory):
     """Simple Redis-backed memory for agent context and workflow state."""
@@ -19,10 +20,13 @@ class RedisMemory(BaseMemory):
     async def save_context(self, session_id: str, context: Dict[str, Any]):
         """Saves workflow state and shared agent context."""
         key = self._context_key(session_id)
-        # Merge with existing context if it exists
         existing = await self.get_context(session_id)
         existing.update(context)
         
+        # Serialize Langchain messages if they exist
+        if "messages" in existing:
+            existing["messages"] = messages_to_dict(existing["messages"])
+            
         await self.redis.set(key, json.dumps(existing), ex=self.ttl)
 
     async def get_context(self, session_id: str) -> Dict[str, Any]:
@@ -30,7 +34,11 @@ class RedisMemory(BaseMemory):
         key = self._context_key(session_id)
         data = await self.redis.get(key)
         if data:
-            return json.loads(data)
+            context = json.loads(data)
+            # Deserialize Langchain messages
+            if "messages" in context:
+                context["messages"] = messages_from_dict(context["messages"])
+            return context
         return {}
 
     async def add_history(self, session_id: str, message: Dict[str, str]):

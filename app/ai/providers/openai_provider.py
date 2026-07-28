@@ -4,11 +4,16 @@ from app.ai.providers.base import BaseLLMProvider
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
+from app.core.config import settings
+
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI API provider for LLM inference."""
     
     def __init__(self, api_key: str = None, model: str = "gpt-4o"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key or settings.OPENAI_API_KEY
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY is not set in environment or settings.")
+        
         self.model = model
         self.client = ChatOpenAI(
             api_key=self.api_key,
