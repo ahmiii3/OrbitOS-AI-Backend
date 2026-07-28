@@ -2,9 +2,8 @@ from pydantic import BaseModel, Field
 
 
 class TokenResponse(BaseModel):
-    """Token authentication response containing access and refresh tokens."""
+    """Token authentication response containing access token."""
     access_token: str = Field(..., description="JWT access token for bearer authentication.")
-    refresh_token: str = Field(..., description="JWT refresh token for obtaining new access tokens.")
     token_type: str = Field(default="bearer", description="Token scheme type.")
 
 

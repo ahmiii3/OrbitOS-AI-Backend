@@ -21,17 +21,13 @@ def get_email_service() -> EmailService:
 
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
-    email_service: EmailService = Depends(get_email_service),
-    redis_client: Redis = Depends(get_redis_client),
 ) -> AuthService:
     """Provide an AuthService instance with injected dependencies."""
-    return AuthService(user_repo=user_repo, email_service=email_service, redis_client=redis_client)
+    return AuthService(user_repo=user_repo)
 
 
 def get_user_service(
     user_repo: UserRepository = Depends(get_user_repository),
-    email_service: EmailService = Depends(get_email_service),
-    redis_client: Redis = Depends(get_redis_client),
 ) -> UserService:
     """Provide a UserService instance with injected dependencies."""
-    return UserService(user_repo=user_repo, email_service=email_service, redis_client=redis_client)
+    return UserService(user_repo=user_repo)

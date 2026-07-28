@@ -17,9 +17,8 @@ security_scheme = HTTPBearer(scheme_name="JWT Bearer Token")
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: Any = Depends(get_db),
-    redis: Redis = Depends(get_redis_client),
 ) -> User:
-    """Validate access token, check blacklist, and return current authenticated user model."""
+    """Validate access token and return current authenticated user model."""
     token = credentials.credentials
     try:
         payload = security.decode_token(token)
@@ -28,12 +27,6 @@ async def get_current_user(
 
     if payload.get("type") != "access":
         raise InvalidTokenError(message="Invalid token type. Expected an access token.")
-
-    jti = payload.get("jti")
-    if jti:
-        is_blacklisted = await redis.get(f"blacklist_token:{jti}")
-        if is_blacklisted:
-            raise InvalidTokenError(message="This access token has been revoked or logged out.")
 
     user_id_str = payload.get("sub")
     if not user_id_str:
@@ -58,13 +51,4 @@ async def get_current_active_user(
     """Ensure the authenticated user account is active."""
     if not current_user.is_active:
         raise AccountDisabledError()
-    return current_user
-
-
-async def get_current_verified_user(
-    current_user: User = Depends(get_current_active_user),
-) -> User:
-    """Ensure the authenticated user has verified their email address."""
-    if not current_user.email_verified:
-        raise EmailNotVerifiedError()
     return current_user
