@@ -84,6 +84,8 @@ class Settings(BaseSettings):
                         "app.models.organization",
                         "app.models.workspace",
                         "app.models.document",
+                        "app.models.workflow",
+                        "app.models.notification",
                         "aerich.models"
                     ],
                     "default_connection": "default",

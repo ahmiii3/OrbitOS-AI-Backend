@@ -20,5 +20,5 @@ COPY . .
 # Expose API port
 EXPOSE 8000
 
-# Run Alembic migrations and start FastAPI server with Uvicorn
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
+# Run DB migrations and start FastAPI server with Uvicorn
+CMD ["sh", "-c", "python init_db.py && uvicorn main:app --host 0.0.0.0 --port 8000"]

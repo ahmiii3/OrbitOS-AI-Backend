@@ -1,73 +1,78 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel
-from redis.asyncio import Redis
-from app.dependencies.auth import get_current_active_user
-from app.dependencies.redis import get_redis_client
+from typing import Dict, Any, Optional
+from uuid import UUID
+from datetime import datetime
+
 from app.models.user import User
-from app.ai.orchestrator.graph import orchestrator_graph
-from app.ai.memory.redis_memory import RedisMemory
-from langchain_core.messages import HumanMessage
+from app.models.workspace import Workspace
+from app.models.workflow import WorkflowExecution
+from app.dependencies.auth import get_current_user
+from app.services.workflow_service import WorkflowService
 
 router = APIRouter()
 
-class ChatRequest(BaseModel):
+class WorkflowCreateRequest(BaseModel):
     message: str
-    business_goal: Optional[str] = None
+    business_goal: str
 
-class ChatResponse(BaseModel):
-    response: str
-    agent: str
+class WorkflowResponse(BaseModel):
+    id: UUID
+    workspace_id: UUID
+    status: str
+    input_data: Optional[Dict[str, Any]]
+    result_data: Optional[Dict[str, Any]]
+    error_message: Optional[str]
+    created_at: datetime
+    updated_at: datetime
 
-@router.post(
-    "/workspaces/{workspace_id}/chat",
-    response_model=ChatResponse,
-    summary="Interact with AI Orchestrator"
-)
-async def chat_with_orchestrator(
-    workspace_id: str,
-    request: ChatRequest,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: Redis = Depends(get_redis_client)
+@router.post("/workspaces/{workspace_id}/workflows", response_model=WorkflowResponse, status_code=status.HTTP_202_ACCEPTED)
+async def create_workflow(
+    workspace_id: UUID,
+    request: WorkflowCreateRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Main entry point for executing tasks via the AI Orchestrator.
-    Pass a message, and the Orchestrator will route it to the proper specialized agent.
+    Trigger a long-running AI workflow asynchronously.
     """
-    memory = RedisMemory(redis_client)
-    session_id = f"{workspace_id}_{current_user.id}"
-    
-    # 1. Load previous state from Redis
-    state = await memory.get_context(session_id)
-    
-    # 2. Update state with new inputs
-    if request.business_goal:
-        state["business_goal"] = request.business_goal
-    
-    # Initialize message list if empty
-    if "messages" not in state:
-        state["messages"] = []
+    # 1. Verify workspace exists and user has access
+    workspace = await Workspace.get_or_none(id=workspace_id).prefetch_related("organization")
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
         
-    state["workspace_id"] = workspace_id
+    if workspace.organization.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this workspace")
+
+    # 2. Create DB Record
+    input_data = {
+        "message": request.message,
+        "business_goal": request.business_goal,
+        "user_id": str(current_user.id)
+    }
+    workflow = await WorkflowService.create_workflow(workspace_id=workspace_id, input_data=input_data)
     
-    # We append the new message to pass into the graph
-    new_message = HumanMessage(content=request.message)
-    # Actually, in LangGraph, passing a dict with 'messages' containing the new message
-    # will trigger the operator.add automatically.
-    input_state = {**state, "messages": [new_message]}
+    # 3. Queue the background task
+    background_tasks.add_task(WorkflowService.execute_workflow_async, workflow.id)
     
-    # 3. Execute LangGraph Orchestrator
-    try:
-        final_state = await orchestrator_graph.ainvoke(input_state)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # 4. Return 202 Accepted with the pending workflow ID
+    return workflow
+
+
+@router.get("/workspaces/{workspace_id}/workflows/{workflow_id}", response_model=WorkflowResponse)
+async def get_workflow_status(
+    workspace_id: UUID,
+    workflow_id: UUID,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Check the status and retrieve results of a long-running AI workflow.
+    """
+    workflow = await WorkflowExecution.get_or_none(id=workflow_id, workspace_id=workspace_id).prefetch_related("workspace__organization")
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
         
-    # 4. Save the new state back to Redis
-    # LangGraph returns the fully updated state dict
-    await memory.save_context(session_id, final_state)
-    
-    # 5. Extract the final response
-    last_msg = final_state["messages"][-1].content if final_state.get("messages") else "No response generated."
-    agent = final_state.get("current_agent", "orchestrator")
-    
-    return ChatResponse(response=last_msg, agent=agent)
+    if workflow.workspace.organization.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this workflow")
+        
+    return workflow
