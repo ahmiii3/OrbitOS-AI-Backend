@@ -45,7 +45,7 @@ class UserService:
             await self.email_service.send_verification_email(
                 to_email=updated_user.email,
                 name=updated_user.name,
-                token=token,
+                code=token,
             )
 
         return UserRead.model_validate(updated_user)

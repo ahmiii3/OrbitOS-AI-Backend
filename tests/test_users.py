@@ -8,8 +8,8 @@ pytestmark = pytest.mark.asyncio
 async def _register_verify_login(client: AsyncClient, mock_redis: MockAsyncRedis, email: str = "user@enterprise.com", password: str = "Password123!") -> str:
     """Helper to register, verify, and login a test user, returning the access token."""
     await client.post("/api/v1/auth/register", json={"name": "Test User", "email": email, "password": password})
-    tokens = [k.split("verify_email:")[1] for k in mock_redis.data.keys() if k.startswith("verify_email:")]
-    await client.get(f"/api/v1/auth/verify-email?token={tokens[0]}")
+    codes = [k.split("verify_email:")[1] for k in mock_redis.data.keys() if k.startswith("verify_email:")]
+    await client.post("/api/v1/auth/verify-email", json={"code": codes[0]})
     login_res = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
     return login_res.json()["access_token"]
 

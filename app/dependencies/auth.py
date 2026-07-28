@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from app.core import security
 from app.core.config import settings
@@ -11,18 +11,16 @@ from app.dependencies.redis import get_redis_client
 from app.models.user import User
 from app.repositories.user import UserRepository
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login",
-    scheme_name="JWT Bearer Authentication",
-)
+security_scheme = HTTPBearer(scheme_name="JWT Bearer Token")
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: Any = Depends(get_db),
     redis: Redis = Depends(get_redis_client),
 ) -> User:
     """Validate access token, check blacklist, and return current authenticated user model."""
+    token = credentials.credentials
     try:
         payload = security.decode_token(token)
     except InvalidTokenError as exc:

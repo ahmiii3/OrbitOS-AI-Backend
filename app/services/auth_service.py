@@ -170,22 +170,26 @@ class AuthService:
         return MessageResponse(message="Successfully logged out.")
 
     async def forgot_password(self, payload: ForgotPasswordRequest) -> MessageResponse:
-        """Initiate password reset workflow without leaking email enumeration."""
+        """Initiate password reset workflow by explicitly checking user existence."""
         user = await self.user_repo.get_by_email(payload.email)
-        if user and user.is_active:
-            token = security.generate_secure_token()
-            redis_key = f"reset_password:{token}"
-            ttl_seconds = settings.EMAIL_RESET_TOKEN_EXPIRE_MINUTES * 60
-            await self.redis.set(redis_key, str(user.id), ex=ttl_seconds)
+        if not user:
+            raise UserNotFoundError(message="We could not find an account associated with this email address.")
+        if not user.is_active:
+            raise AccountDisabledError(message="This account has been disabled and cannot request a password reset.")
 
-            await self.email_service.send_password_reset_email(
-                to_email=user.email,
-                name=user.name,
-                token=token,
-            )
+        token = security.generate_secure_token()
+        redis_key = f"reset_password:{token}"
+        ttl_seconds = settings.EMAIL_RESET_TOKEN_EXPIRE_MINUTES * 60
+        await self.redis.set(redis_key, str(user.id), ex=ttl_seconds)
+
+        await self.email_service.send_password_reset_email(
+            to_email=user.email,
+            name=user.name,
+            token=token,
+        )
 
         return MessageResponse(
-            message="If an active account with that email exists, password reset instructions have been sent."
+            message="Password reset instructions have been successfully sent to your email address."
         )
 
     async def reset_password(self, payload: ResetPasswordRequest) -> MessageResponse:

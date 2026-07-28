@@ -9,7 +9,6 @@ class RegisterRequest(UserCreate):
 
 class VerifyEmailRequest(BaseModel):
     """Payload for verifying email with 6-digit confirmation code."""
-    email: EmailStr = Field(..., description="The email address to verify.", examples=["john.doe@enterprise.com"])
     code: str = Field(..., min_length=6, max_length=6, description="The 6-digit verification code received via email.", examples=["482901"])
 
 

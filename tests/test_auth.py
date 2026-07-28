@@ -72,7 +72,6 @@ async def test_verify_email_and_login(client: AsyncClient, mock_redis: MockAsync
 
     # Verify email via POST with code
     response = await client.post("/api/v1/auth/verify-email", json={
-        "email": "john.verified@enterprise.com",
         "code": code,
     })
     assert response.status_code == 200
@@ -96,7 +95,7 @@ async def test_refresh_token_rotation(client: AsyncClient, mock_redis: MockAsync
     # Register and verify
     await client.post("/api/v1/auth/register", json={"name": "Rotator", "email": "rotate@enterprise.com", "password": "Password123!"})
     code = [k.split("verify_email:")[1] for k in mock_redis.data.keys() if k.startswith("verify_email:")][0]
-    await client.post("/api/v1/auth/verify-email", json={"email": "rotate@enterprise.com", "code": code})
+    await client.post("/api/v1/auth/verify-email", json={"code": code})
 
     # Login
     login_res = await client.post("/api/v1/auth/login", json={"email": "rotate@enterprise.com", "password": "Password123!"})
@@ -119,7 +118,7 @@ async def test_logout_blacklists_access_token(client: AsyncClient, mock_redis: M
     """Test logout revokes tokens and blocks access to authenticated endpoints."""
     await client.post("/api/v1/auth/register", json={"name": "Logout User", "email": "logout@enterprise.com", "password": "Password123!"})
     code = [k.split("verify_email:")[1] for k in mock_redis.data.keys() if k.startswith("verify_email:")][0]
-    await client.post("/api/v1/auth/verify-email", json={"email": "logout@enterprise.com", "code": code})
+    await client.post("/api/v1/auth/verify-email", json={"code": code})
 
     login_res = await client.post("/api/v1/auth/login", json={"email": "logout@enterprise.com", "password": "Password123!"})
     access_token = login_res.json()["access_token"]
@@ -143,9 +142,14 @@ async def test_forgot_and_reset_password(client: AsyncClient, mock_redis: MockAs
     """Test forgot password request and resetting password with token."""
     await client.post("/api/v1/auth/register", json={"name": "Reset User", "email": "reset@enterprise.com", "password": "OldPassword123!"})
     code_verify = [k.split("verify_email:")[1] for k in mock_redis.data.keys() if k.startswith("verify_email:")][0]
-    await client.post("/api/v1/auth/verify-email", json={"email": "reset@enterprise.com", "code": code_verify})
+    await client.post("/api/v1/auth/verify-email", json={"code": code_verify})
 
-    # Forgot password
+    # Forgot password with non-existent email (fails with 404)
+    invalid_res = await client.post("/api/v1/auth/forgot-password", json={"email": "doesntexist@enterprise.com"})
+    assert invalid_res.status_code == 404
+    assert invalid_res.json()["error"] == "UserNotFoundError"
+
+    # Forgot password with valid email
     forgot_res = await client.post("/api/v1/auth/forgot-password", json={"email": "reset@enterprise.com"})
     assert forgot_res.status_code == 200
 

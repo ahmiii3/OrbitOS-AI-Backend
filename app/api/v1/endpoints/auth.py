@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
-from fastapi.security import OAuth2PasswordBearer
-from app.dependencies.auth import get_current_user, oauth2_scheme
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.dependencies.auth import get_current_user
 from app.dependencies.services import get_auth_service, get_user_service
 from app.models.user import User
 from app.schemas.auth import (
@@ -20,7 +20,7 @@ from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 
 router = APIRouter()
-optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
+optional_security_scheme = HTTPBearer(auto_error=False)
 
 
 @router.post(
@@ -88,9 +88,10 @@ async def refresh(
 )
 async def logout(
     payload: RefreshTokenRequest,
-    access_token: Optional[str] = Depends(optional_oauth2_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security_scheme),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
+    access_token = credentials.credentials if credentials else None
     return await auth_service.logout(refresh_token=payload.refresh_token, access_token=access_token)
 
 
@@ -99,7 +100,7 @@ async def logout(
     response_model=MessageResponse,
     status_code=status.HTTP_200_OK,
     summary="Request password reset email",
-    description="Generates a secure reset token (valid for 30 mins) and sends it via email if the account exists.",
+    description="Checks if an account exists and sends a secure reset token via email. Returns 404 if not found.",
 )
 async def forgot_password(
     payload: ForgotPasswordRequest,
