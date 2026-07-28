@@ -5,9 +5,9 @@ from app.ai.orchestrator.router import OrchestratorRouter
 from app.ai.agents.strategy_agent import strategy_agent
 from app.ai.agents.marketing_agent import marketing_agent
 from app.ai.agents.sales_agent import sales_agent
-from app.ai.agents.dummy_agents import (
-    finance_agent, operations_agent, customer_success_agent
-)
+from app.ai.agents.finance_agent import finance_agent
+from app.ai.agents.operations_agent import operations_agent
+from app.ai.agents.customer_success_agent import customer_success_agent
 from langchain_core.messages import AIMessage
 
 # Initialize Router
@@ -47,15 +47,15 @@ def router_condition(state: AgentState) -> Literal["strategy", "marketing", "sal
 builder.set_entry_point("router")
 builder.add_conditional_edges("router", router_condition)
 
-# All specialized agents return to the user (END) for this phase
-# (Future phases might route them back to the orchestrator for review)
-builder.add_edge("strategy", END)
-builder.add_edge("marketing", END)
-builder.add_edge("sales", END)
-builder.add_edge("finance", END)
-builder.add_edge("operations", END)
-builder.add_edge("customer_success", END)
-builder.add_edge("general", END)
+# All specialized agents return control back to the orchestrator (router)
+# The router will then decide if the workflow is complete and route to END
+builder.add_edge("strategy", "router")
+builder.add_edge("marketing", "router")
+builder.add_edge("sales", "router")
+builder.add_edge("finance", "router")
+builder.add_edge("operations", "router")
+builder.add_edge("customer_success", "router")
+builder.add_edge("general", "router")
 
 # Compile graph
 # We handle long-term Redis memory at the API layer to keep the graph simple

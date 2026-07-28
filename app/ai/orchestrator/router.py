@@ -1,11 +1,18 @@
-from typing import Any, Dict
+from typing import Any, Dict, Literal
+from pydantic import BaseModel, Field
 from app.ai.providers.openai_provider import OpenAIProvider
 from app.ai.orchestrator.state import AgentState
+from langchain_core.messages import AIMessage
+
+class RouteSchema(BaseModel):
+    category: Literal["strategy", "marketing", "sales", "finance", "operations", "customer_success", "general"] = Field(
+        description="The category of the user's intent."
+    )
 
 class OrchestratorRouter:
     """
     The Orchestrator's brain. It classifies user intent and routes the execution
-    to the appropriate specialized AI agent.
+    to the appropriate specialized AI agent using structured outputs.
     """
     def __init__(self):
         self.llm = OpenAIProvider()
@@ -18,20 +25,19 @@ class OrchestratorRouter:
         if not messages:
             return {"next_step": "end"}
             
-        last_message = messages[-1].content
+        last_message_obj = messages[-1]
+        
+        # Prevent infinite loops: if the last message is from an AI agent, we should stop
+        if isinstance(last_message_obj, AIMessage):
+            print("--- Orchestrator detected AI response, ending graph ---")
+            return {"next_step": "end"}
+            
+        last_message = last_message_obj.content
         
         # System prompt for classification
         system_prompt = (
             "You are the Orchestrator for OrbitOS AI. Your job is to classify the user's request "
-            "into exactly ONE of the following categories based on their intent:\n"
-            "- strategy (for business planning, goals, strategy)\n"
-            "- marketing (for campaigns, SEO, content, ads)\n"
-            "- sales (for leads, outreach, CRM)\n"
-            "- finance (for budgeting, accounting, revenue)\n"
-            "- operations (for logistics, HR, management)\n"
-            "- customer_success (for support, retention, feedback)\n"
-            "- general (if it doesn't fit any specific category or is just a general greeting)\n\n"
-            "Return ONLY the category word in lowercase. Do not return any other text."
+            "into exactly ONE of the provided categories based on their intent."
         )
         
         # Construct messages for the LLM
@@ -40,12 +46,12 @@ class OrchestratorRouter:
             {"role": "user", "content": last_message}
         ]
         
-        # Call the LLM
-        response = await self.llm.generate(prompt_messages)
-        category = response.strip().lower()
-        
-        valid_routes = ["strategy", "marketing", "sales", "finance", "operations", "customer_success", "general"]
-        if category not in valid_routes:
+        # Call the LLM with structured output
+        try:
+            response = await self.llm.generate_structured(prompt_messages, RouteSchema)
+            category = response.category
+        except Exception as e:
+            print(f"--- Orchestrator routing error: {e} ---")
             category = "general"
             
         print(f"--- Orchestrator routed intent to: {category.upper()} ---")

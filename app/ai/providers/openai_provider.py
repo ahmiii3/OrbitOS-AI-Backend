@@ -37,6 +37,13 @@ class OpenAIProvider(BaseLLMProvider):
         lc_messages = self._convert_messages(messages)
         response = await self.client.ainvoke(lc_messages, **kwargs)
         return response.content
+        
+    async def generate_structured(self, messages: List[Dict[str, str]], schema: Any, **kwargs) -> Any:
+        """Generate a structured response matching the Pydantic schema."""
+        lc_messages = self._convert_messages(messages)
+        structured_client = self.client.with_structured_output(schema)
+        response = await structured_client.ainvoke(lc_messages, **kwargs)
+        return response
 
     async def stream(self, messages: List[Dict[str, str]], **kwargs):
         """Stream response using OpenAI."""

@@ -19,7 +19,5 @@ class DummyAgent(BaseAgent):
         }
 
 # Instantiate dummy agents for the LangGraph nodes
-# (Strategy, Marketing, and Sales Agents are now real agents)
-finance_agent = DummyAgent(name="Finance Agent", description="Handles budgeting and finance.")
-operations_agent = DummyAgent(name="Operations Agent", description="Handles operations and logistics.")
-customer_success_agent = DummyAgent(name="Customer Success Agent", description="Handles customer support.")
+# (All Agents are now real agents)
+# No dummy agents remaining.
