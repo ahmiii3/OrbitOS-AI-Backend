@@ -52,3 +52,54 @@ async def get_current_active_user(
     if not current_user.is_active:
         raise AccountDisabledError()
     return current_user
+
+ROLE_HIERARCHY = {
+    "viewer": 10,
+    "member": 20,
+    "manager": 50,
+    "admin": 80,
+    "owner": 100
+}
+
+async def verify_org_membership(
+    org_id: str, 
+    user: User, 
+    required_role: str = None
+):
+    """
+    Dependency helper to check if the current user belongs to the specified organization.
+    """
+    from fastapi import HTTPException, status
+    from app.models.organization import OrganizationMember
+
+    member = await OrganizationMember.filter(organization_id=org_id, user_id=user.id).first()
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of this organization"
+        )
+
+    if required_role:
+        user_level = ROLE_HIERARCHY.get(member.role, 0)
+        required_level = ROLE_HIERARCHY.get(required_role, 0)
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Organization role '{member.role}' does not meet required '{required_role}' permission level"
+            )
+
+    return member
+
+
+async def verify_workspace_access(workspace_id: str, user: User):
+    from fastapi import HTTPException, status
+    from app.models.workspace import Workspace
+
+    workspace = await Workspace.filter(id=workspace_id).first()
+    if not workspace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found"
+        )
+    await verify_org_membership(workspace.organization_id, user)
+    return workspace

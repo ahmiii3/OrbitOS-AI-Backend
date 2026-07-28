@@ -18,3 +18,15 @@ pytest-asyncio>=0.24.0
 pytest-mock>=3.14.0
 aiosqlite>=0.20.0
 fakeredis>=2.23.0
+# RAG & Knowledge Base Dependencies
+supabase>=2.3.0
+python-multipart>=0.0.9
+langchain>=0.1.16
+langchain-text-splitters>=0.0.1
+langchain-openai>=0.1.0
+langchain-huggingface>=0.0.3
+langchain-postgres>=0.0.9
+sentence-transformers>=2.7.0
+pypdf>=4.2.0
+python-docx>=1.1.2
+psycopg[binary]>=3.1.18
