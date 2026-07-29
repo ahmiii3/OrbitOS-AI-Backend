@@ -71,10 +71,12 @@ async def get_dashboard_summary(
         input_data = wf.input_data or {}
         agent = result.get("last_agent", "Unknown Agent")
         response_text = result.get("response", "")
-        insight = response_text[:150] + "..." if len(response_text) > 150 else response_text
+        insight = response_text
         recent_activities.append(
             ReportSummaryItem(
                 workflow_id=wf.id,
+                chat_id=wf.id,
+                title=wf.title,
                 date=wf.updated_at,
                 goal=input_data.get("business_goal", "No goal specified"),
                 agent=agent,
