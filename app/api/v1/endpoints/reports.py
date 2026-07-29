@@ -58,8 +58,8 @@ async def get_workspace_report_summary(
         agent = result.get("last_agent", "Unknown Agent")
         response_text = result.get("response", "")
         
-        # Simple extraction for MVP (first 150 chars as key insight)
-        insight = response_text[:150] + "..." if len(response_text) > 150 else response_text
+        # Return the full response for the key insight as requested
+        insight = response_text
 
         recent_activities.append(
             ReportSummaryItem(
