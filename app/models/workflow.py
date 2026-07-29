@@ -15,6 +15,8 @@ class WorkflowExecution(Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
     workspace = fields.ForeignKeyField("models.Workspace", related_name="workflows", on_delete=fields.CASCADE)
     status = fields.CharEnumField(WorkflowStatus, default=WorkflowStatus.PENDING)
+    title = fields.CharField(max_length=255, null=True, default="New Workflow")
+    messages = fields.JSONField(default=list)
     input_data = fields.JSONField(null=True)
     result_data = fields.JSONField(null=True)
     error_message = fields.TextField(null=True)

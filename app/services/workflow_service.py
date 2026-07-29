@@ -15,9 +15,31 @@ class WorkflowService:
     @staticmethod
     async def create_workflow(workspace_id: UUID, input_data: Dict[str, Any]) -> WorkflowExecution:
         """Create a new pending workflow in the database."""
+        title = "New Workflow"
+        message = input_data.get("message")
+        if message:
+            try:
+                from app.ai.providers.openai_provider import OpenAIProvider
+                llm = OpenAIProvider()
+                prompt = [
+                    {"role": "system", "content": "You are a title generator. Generate a very short (2-5 words) professional title summarizing the user's intent. Do not use quotes or prefixes."},
+                    {"role": "user", "content": message[:500]}
+                ]
+                title = await llm.generate_text(prompt)
+                title = title.strip('"').strip("'")
+            except Exception as e:
+                logger.error(f"Title generation failed: {e}")
+                title = "AI Workflow Task"
+
+        initial_messages = []
+        if message:
+            initial_messages.append({"role": "user", "content": message})
+
         workflow = await WorkflowExecution.create(
             workspace_id=workspace_id,
             status=WorkflowStatus.PENDING,
+            title=title,
+            messages=initial_messages,
             input_data=input_data
         )
         return workflow
@@ -50,10 +72,23 @@ class WorkflowService:
             
             final_messages = final_state.get("messages", [])
             last_message_content = final_messages[-1].content if final_messages else "No response generated."
+            last_agent = final_state.get("current_agent", "unknown")
+            
+            # Append AI response to messages history
+            if workflow.messages is None:
+                workflow.messages = []
+            
+            # The user message is already in workflow.messages from create_workflow.
+            # Append the AI response.
+            workflow.messages.append({
+                "role": "assistant",
+                "content": last_message_content,
+                "agent": last_agent
+            })
             
             result_data = {
                 "response": last_message_content,
-                "last_agent": final_state.get("current_agent", "unknown")
+                "last_agent": last_agent
             }
 
             workflow.status = WorkflowStatus.COMPLETED

@@ -14,6 +14,8 @@ router = APIRouter()
 
 class ReportSummaryItem(BaseModel):
     workflow_id: UUID
+    chat_id: UUID  # Alias for workflow_id for frontend convenience
+    title: Optional[str]
     date: datetime
     goal: str
     agent: str
@@ -62,6 +64,8 @@ async def get_workspace_report_summary(
         recent_activities.append(
             ReportSummaryItem(
                 workflow_id=wf.id,
+                chat_id=wf.id,
+                title=wf.title,
                 date=wf.updated_at,
                 goal=input_data.get("business_goal", "No goal specified"),
                 agent=agent,
